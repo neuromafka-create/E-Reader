@@ -1,0 +1,9 @@
+A Short Plain Text Sample
+
+This file checks the TXT pipeline.
+
+Paragraphs are split on blank lines. Long lines wrap naturally in the reader.
+
+Progress is saved as a scroll position. Bookmarks can be added from the reader toolbar.
+
+EPUB and FB2 files can already be indexed in the library, but reading for those formats arrives in the next stages.

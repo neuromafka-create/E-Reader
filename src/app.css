@@ -1,0 +1,119 @@
+:root {
+  /* Default = sepia shell (overridden by [data-theme]) */
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --surface: #fffcf7;
+  --surface-2: #efe8db;
+  --text: #1f1a14;
+  --muted: #6f6558;
+  --border: #ddd2c0;
+  --accent: #0f766e;
+  --drop-card-bg: #fffcf7;
+  --drop-card-text: #1f1a14;
+  --drop-card-muted: #6f6558;
+
+  /* Reader surface tokens (same theme, slightly paper-like) */
+  --reader-bg: #f4ecd8;
+  --reader-text: #3b2f2f;
+  --reader-muted: #7a6a58;
+  --reader-panel: #ebe1c9;
+  --reader-border: #d8c9a8;
+  --reader-accent: #0f766e;
+
+  font-family:
+    Inter,
+    Segoe UI,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="sepia"] {
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --surface: #fffcf7;
+  --surface-2: #efe8db;
+  --text: #1f1a14;
+  --muted: #6f6558;
+  --border: #ddd2c0;
+  --accent: #0f766e;
+  --drop-card-bg: #fffcf7;
+  --drop-card-text: #1f1a14;
+  --drop-card-muted: #6f6558;
+  --reader-bg: #f4ecd8;
+  --reader-text: #3b2f2f;
+  --reader-muted: #7a6a58;
+  --reader-panel: #ebe1c9;
+  --reader-border: #d8c9a8;
+  --reader-accent: #0f766e;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --text: #1a1a1a;
+  --muted: #666666;
+  --border: #dddde3;
+  --accent: #0f766e;
+  --drop-card-bg: #ffffff;
+  --drop-card-text: #1a1a1a;
+  --drop-card-muted: #666666;
+  --reader-bg: #fafafa;
+  --reader-text: #1a1a1a;
+  --reader-muted: #666666;
+  --reader-panel: #f0f0f0;
+  --reader-border: #dddddd;
+  --reader-accent: #0f766e;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121417;
+  --surface: #1a1e24;
+  --surface-2: #242a33;
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+  --border: #2c313a;
+  --accent: #2dd4bf;
+  --drop-card-bg: #1a1e24;
+  --drop-card-text: #e8eaed;
+  --drop-card-muted: #9aa0a6;
+  --reader-bg: #121417;
+  --reader-text: #e8eaed;
+  --reader-muted: #9aa0a6;
+  --reader-panel: #1c1f24;
+  --reader-border: #2c313a;
+  --reader-accent: #2dd4bf;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  overflow: hidden;
+}
+
+#app,
+body > div {
+  height: 100%;
+}

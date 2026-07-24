@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <description>
+    <title-info>
+      <genre>sf</genre>
+      <author>
+        <first-name>Ada</first-name>
+        <last-name>Lovelace</last-name>
+      </author>
+      <book-title>Sample FB2 Story</book-title>
+      <annotation>
+        <p>A tiny FictionBook sample for the E-Reader pipeline.</p>
+      </annotation>
+      <lang>en</lang>
+    </title-info>
+    <document-info>
+      <author>
+        <nickname>e-reader</nickname>
+      </author>
+      <date value="2026-01-01">2026</date>
+      <id>e-reader-sample-fb2</id>
+      <version>1.0</version>
+    </document-info>
+  </description>
+  <body>
+    <title>
+      <p>Sample FB2 Story</p>
+    </title>
+    <section id="ch1">
+      <title>
+        <p>Chapter One</p>
+      </title>
+      <p>This is a <emphasis>FictionBook</emphasis> sample used to verify FB2 to HTML conversion.</p>
+      <empty-line/>
+      <p>Progress and bookmarks work the same way as for TXT and Markdown.</p>
+    </section>
+    <section id="ch2">
+      <title>
+        <p>Chapter Two</p>
+      </title>
+      <subtitle>A small note</subtitle>
+      <p>Nested structure becomes headings and paragraphs in the reader.</p>
+      <cite>
+        <p>Reading should feel calm and continuous.</p>
+        <text-author>E-Reader</text-author>
+      </cite>
+    </section>
+  </body>
+</FictionBook>

@@ -1,0 +1,29 @@
+# Dependencies & build
+node_modules/
+/build/
+/dist/
+/.svelte-kit/
+/package/
+src-tauri/target/
+
+# Env & local
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Vite / tooling
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+*.log
+
+# Temp analysis artifacts
+.tmp*
+.crate-tmp/
+*.tmp
+
+# IDE (optional local)
+.idea/
+*.swp
+*~
