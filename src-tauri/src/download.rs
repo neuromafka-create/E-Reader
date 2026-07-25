@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 const USER_AGENT: &str =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) E-Reader/0.1 (compatible; +local-ebook-reader)";
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) E-Reader/1.2 (compatible; +local-ebook-reader)";
 
 /// Result of attempting to import a remote URL into the library.
 #[derive(Debug, Clone, serde::Serialize)]

@@ -16,6 +16,8 @@
     onScan: () => void;
     onRemoveRoot: (id: string) => void;
     onOpenBook: (book: Book) => void;
+    onArchiveBook: (book: Book, archived: boolean) => void;
+    onDeleteBook: (book: Book) => void;
     onLocaleChange: (locale: Locale) => void;
     onThemeChange: (theme: ThemeId) => void;
     lastScan: ScanResult | null;
@@ -31,12 +33,17 @@
     onScan,
     onRemoveRoot,
     onOpenBook,
+    onArchiveBook,
+    onDeleteBook,
     onLocaleChange,
     onThemeChange,
     lastScan,
   }: Props = $props();
 
   let covers = $state<Record<string, string>>({});
+
+  const activeBooks = $derived(books.filter((b) => !b.archived));
+  const archivedBooks = $derived(books.filter((b) => b.archived));
 
   $effect(() => {
     const ids = books.map((b) => b.id);
@@ -70,6 +77,12 @@
       default:
         return format.toUpperCase();
     }
+  }
+
+  function stopAnd(e: Event, fn: () => void) {
+    e.stopPropagation();
+    e.preventDefault();
+    fn();
   }
 </script>
 
@@ -131,29 +144,91 @@
       <p class="hint" style="white-space: pre-line">{t("noBooksHint")}</p>
     </div>
   {:else}
-    <div class="grid">
-      {#each books as book (book.id)}
-        <button type="button" class="card" onclick={() => onOpenBook(book)}>
-          <div class="cover" data-format={book.format}>
-            {#if covers[book.id]}
-              <img src={covers[book.id]} alt="" />
-            {:else}
-              <span>{formatLabel(book.format)}</span>
-            {/if}
-          </div>
-          <div class="meta">
-            <h3>{book.title}</h3>
-            <p class="author">{book.author ?? t("unknownAuthor")}</p>
-            <div class="row">
-              <span class="badge">{t("ready")}</span>
-              {#if book.progressPercentage > 0}
-                <span class="progress">{Math.round(book.progressPercentage)}%</span>
-              {/if}
+    {#if activeBooks.length === 0}
+      <p class="empty-active">{t("noActiveBooks")}</p>
+    {:else}
+      <div class="grid">
+        {#each activeBooks as book (book.id)}
+          <article class="card">
+            <button type="button" class="card-main" onclick={() => onOpenBook(book)}>
+              <div class="cover" data-format={book.format}>
+                {#if covers[book.id]}
+                  <img src={covers[book.id]} alt="" />
+                {:else}
+                  <span>{formatLabel(book.format)}</span>
+                {/if}
+              </div>
+              <div class="meta">
+                <h3>{book.title}</h3>
+                <p class="author">{book.author ?? t("unknownAuthor")}</p>
+                <div class="row">
+                  <span class="badge">{t("ready")}</span>
+                  {#if book.progressPercentage > 0}
+                    <span class="progress">{Math.round(book.progressPercentage)}%</span>
+                  {/if}
+                </div>
+              </div>
+            </button>
+            <div class="card-actions">
+              <button
+                type="button"
+                class="ghost-action"
+                disabled={busy}
+                onclick={(e) => stopAnd(e, () => onArchiveBook(book, true))}
+                >{t("archive")}</button
+              >
+              <button
+                type="button"
+                class="ghost-action danger"
+                disabled={busy}
+                onclick={(e) => stopAnd(e, () => onDeleteBook(book))}
+                >{t("deleteBook")}</button
+              >
             </div>
-          </div>
-        </button>
-      {/each}
-    </div>
+          </article>
+        {/each}
+      </div>
+    {/if}
+
+    {#if archivedBooks.length > 0}
+      <details class="archive-panel">
+        <summary>{t("archiveSection", { n: archivedBooks.length })}</summary>
+        <ul class="archive-list">
+          {#each archivedBooks as book (book.id)}
+            <li>
+              <button
+                type="button"
+                class="archive-open"
+                disabled={busy}
+                onclick={() => onOpenBook(book)}
+                title={book.path}
+              >
+                <span class="archive-format">{formatLabel(book.format)}</span>
+                <span class="archive-title">{book.title}</span>
+                <span class="archive-author">{book.author ?? t("unknownAuthor")}</span>
+                {#if book.progressPercentage > 0}
+                  <span class="archive-progress">{Math.round(book.progressPercentage)}%</span>
+                {/if}
+              </button>
+              <div class="archive-actions">
+                <button
+                  type="button"
+                  class="ghost-action"
+                  disabled={busy}
+                  onclick={() => onArchiveBook(book, false)}>{t("unarchive")}</button
+                >
+                <button
+                  type="button"
+                  class="ghost-action danger"
+                  disabled={busy}
+                  onclick={() => onDeleteBook(book)}>{t("deleteBook")}</button
+                >
+              </div>
+            </li>
+          {/each}
+        </ul>
+      </details>
+    {/if}
   {/if}
 </section>
 
@@ -288,6 +363,11 @@
     font-size: 1.35rem;
   }
 
+  .empty-active {
+    margin: 1rem 0 1.5rem;
+    color: var(--muted);
+  }
+
   .hint {
     font-size: 0.92rem;
   }
@@ -301,8 +381,6 @@
   .card {
     display: flex;
     flex-direction: column;
-    text-align: left;
-    padding: 0;
     overflow: hidden;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -316,6 +394,19 @@
   .card:hover {
     transform: translateY(-2px);
     border-color: var(--accent);
+  }
+
+  .card-main {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    padding: 0;
+    flex: 1;
+    background: transparent;
+    color: inherit;
+    border: none;
+    border-radius: 0;
+    font-weight: inherit;
   }
 
   .cover {
@@ -352,7 +443,7 @@
   }
 
   .meta {
-    padding: 0.9rem 1rem 1rem;
+    padding: 0.9rem 1rem 0.65rem;
   }
 
   .meta h3 {
@@ -386,5 +477,123 @@
 
   .progress {
     color: var(--accent);
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 0.35rem;
+    padding: 0 0.75rem 0.75rem;
+  }
+
+  .ghost-action {
+    flex: 1;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .ghost-action.danger {
+    color: #b91c1c;
+  }
+
+  :global([data-theme="dark"]) .ghost-action.danger {
+    color: #fca5a5;
+  }
+
+  .archive-panel {
+    margin-top: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    padding: 0.65rem 1rem 0.85rem;
+  }
+
+  .archive-panel summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--muted);
+    user-select: none;
+    list-style-position: outside;
+  }
+
+  .archive-panel summary:hover {
+    color: var(--text);
+  }
+
+  .archive-list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .archive-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+  }
+
+  .archive-list li:hover {
+    background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+    border-color: var(--border);
+  }
+
+  .archive-open {
+    flex: 1;
+    min-width: 12rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.45rem 0.75rem;
+    text-align: left;
+    background: transparent;
+    color: inherit;
+    border: none;
+    border-radius: 8px;
+    padding: 0.25rem 0.35rem;
+    font-weight: 500;
+  }
+
+  .archive-format {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    min-width: 2.5rem;
+  }
+
+  .archive-title {
+    font-weight: 600;
+  }
+
+  .archive-author {
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .archive-progress {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .archive-actions {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .archive-actions .ghost-action {
+    flex: 0 0 auto;
   }
 </style>

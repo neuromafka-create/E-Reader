@@ -61,6 +61,9 @@ pub struct Book {
     pub added_at: String,
     pub last_opened_at: Option<String>,
     pub progress_percentage: f64,
+    /// Soft-hidden from the main library grid.
+    #[serde(default)]
+    pub archived: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

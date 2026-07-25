@@ -28,22 +28,29 @@ fn covers_dir(state: &State<'_, AppState>) -> PathBuf {
     state.data_dir.join("covers")
 }
 
+/// `force`: true for explicit user import (clears path exclusion); false for folder scan.
 fn index_book(
     state: &State<'_, AppState>,
     path: &Path,
     format: crate::models::BookFormat,
     file_size: i64,
     modified_at: Option<String>,
-) -> AppResult<(bool, String)> {
+    force: bool,
+) -> AppResult<Option<(bool, String)>> {
+    let path_str = path.to_string_lossy().to_string();
+
+    if force {
+        with_db(state, |db| db.clear_path_exclusion(&path_str))?;
+    } else if with_db(state, |db| db.is_path_excluded(&path_str))? {
+        return Ok(None);
+    }
+
     let meta = formats::extract_metadata(path, &format).unwrap_or_else(|_| formats::BookMeta {
         title: title_from_path(path),
         author: None,
         cover: None,
     });
-    // BookMeta is private fields in formats - need to use the public struct
-    // Actually BookMeta is pub in formats/mod.rs
 
-    let path_str = path.to_string_lossy().to_string();
     let (is_new, id) = with_db(state, |db| {
         db.upsert_book(
             &path_str,
@@ -66,7 +73,7 @@ fn index_book(
         }
     }
 
-    Ok((is_new, id))
+    Ok(Some((is_new, id)))
 }
 
 #[tauri::command]
@@ -100,11 +107,12 @@ pub fn scan_library(state: State<'_, AppState>) -> AppResult<ScanResult> {
 
 fn do_scan_library(state: &State<'_, AppState>) -> AppResult<ScanResult> {
     let roots = with_db(state, |db| db.list_library_roots())?;
+    let root_paths: Vec<String> = roots.iter().map(|r| r.path.clone()).collect();
     let mut added = 0usize;
     let mut updated = 0usize;
     let mut existing_paths = Vec::new();
 
-    for root in roots {
+    for root in &roots {
         let root_path = PathBuf::from(&root.path);
         if !root_path.exists() {
             continue;
@@ -133,16 +141,17 @@ fn do_scan_library(state: &State<'_, AppState>) -> AppResult<ScanResult> {
                 });
 
             existing_paths.push(path.to_string_lossy().to_string());
-            let (is_new, _) = index_book(state, path, format, file_size, modified_at)?;
-            if is_new {
-                added += 1;
-            } else {
-                updated += 1;
+            match index_book(state, path, format, file_size, modified_at, false)? {
+                Some((true, _)) => added += 1,
+                Some((false, _)) => updated += 1,
+                None => {} // user deleted / excluded this path
             }
         }
     }
 
-    let removed = with_db(state, |db| db.remove_missing_books(&existing_paths))?;
+    let removed = with_db(state, |db| {
+        db.remove_missing_root_books(&existing_paths, &root_paths)
+    })?;
     let total = with_db(state, |db| db.list_books())?.len();
 
     Ok(ScanResult {
@@ -204,7 +213,12 @@ fn do_ingest_paths(state: &State<'_, AppState>, paths: Vec<String>) -> AppResult
             let dt: chrono::DateTime<chrono::Utc> = t.into();
             dt.to_rfc3339()
         });
-        let (_is_new, id) = index_book(state, &path, format, file_size, modified_at)?;
+        let Some((_is_new, id)) =
+            index_book(state, &path, format, file_size, modified_at, true)?
+        else {
+            skipped += 1;
+            continue;
+        };
         book_ids.push(id);
         files_imported += 1;
     }
@@ -338,7 +352,18 @@ pub async fn import_from_url(
         dt.to_rfc3339()
     });
 
-    let (_is_new, id) = index_book(&state, &path, format, file_size, modified_at)?;
+    let Some((_is_new, id)) =
+        index_book(&state, &path, format, file_size, modified_at, true)?
+    else {
+        return Ok(ImportFromUrlResult {
+            success: false,
+            open_book_id: None,
+            title: None,
+            path: Some(path_str),
+            message: "Book path is excluded from the library.".into(),
+            open_externally: false,
+        });
+    };
     let book = with_db(&state, |db| db.get_book(&id))?;
     let title = book.title;
 
@@ -350,6 +375,48 @@ pub async fn import_from_url(
         message: format!("Book added to library: {title}"),
         open_externally: false,
     })
+}
+
+#[tauri::command]
+pub fn set_book_archived(
+    state: State<'_, AppState>,
+    id: String,
+    archived: bool,
+) -> AppResult<Book> {
+    with_db(&state, |db| db.set_book_archived(&id, archived))
+}
+
+#[tauri::command]
+pub fn delete_book(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    let book = with_db(&state, |db| db.delete_book(&id))?;
+
+    if let Some(cover) = book.cover_path.as_deref() {
+        let cover_path = PathBuf::from(cover);
+        if cover_path.exists() {
+            let _ = std::fs::remove_file(&cover_path);
+        }
+    }
+
+    // Only remove managed downloads from disk — never delete user's library folder files.
+    let downloads = state.data_dir.join("downloads");
+    let book_path = PathBuf::from(&book.path);
+    if book_path.exists() {
+        let under_downloads = book_path
+            .canonicalize()
+            .ok()
+            .zip(downloads.canonicalize().ok())
+            .map(|(bp, dl)| bp.starts_with(dl))
+            .unwrap_or_else(|| {
+                let bp = book.path.replace('/', "\\").to_ascii_lowercase();
+                let dl = downloads.to_string_lossy().replace('/', "\\").to_ascii_lowercase();
+                bp.starts_with(&dl)
+            });
+        if under_downloads {
+            let _ = std::fs::remove_file(&book_path);
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

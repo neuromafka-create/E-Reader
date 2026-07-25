@@ -70,9 +70,47 @@ impl Database {
 
             CREATE INDEX IF NOT EXISTS idx_books_format ON books(format);
             CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON bookmarks(book_id);
+
+            CREATE TABLE IF NOT EXISTS book_exclusions (
+                path TEXT PRIMARY KEY,
+                excluded_at TEXT NOT NULL
+            );
             ",
         )?;
+        self.ensure_column("books", "archived", "INTEGER NOT NULL DEFAULT 0")?;
         Ok(())
+    }
+
+    fn ensure_column(&self, table: &str, column: &str, decl: &str) -> AppResult<()> {
+        let pragma = format!("PRAGMA table_info({table})");
+        let mut stmt = self.conn.prepare(&pragma)?;
+        let names = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<Result<Vec<_>, _>>()?;
+        if !names.iter().any(|n| n == column) {
+            self.conn
+                .execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])?;
+        }
+        Ok(())
+    }
+
+    fn map_book_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {
+        let format_str: String = row.get(4)?;
+        let archived_i: i64 = row.get(11)?;
+        Ok(Book {
+            id: row.get(0)?,
+            path: row.get(1)?,
+            title: row.get(2)?,
+            author: row.get(3)?,
+            format: BookFormat::parse(&format_str).unwrap_or(BookFormat::Txt),
+            cover_path: row.get(5)?,
+            file_size: row.get(6)?,
+            modified_at: row.get(7)?,
+            added_at: row.get(8)?,
+            last_opened_at: row.get(9)?,
+            progress_percentage: row.get(10)?,
+            archived: archived_i != 0,
+        })
     }
 
     pub fn list_library_roots(&self) -> AppResult<Vec<LibraryRoot>> {
@@ -133,28 +171,14 @@ impl Database {
             "
             SELECT b.id, b.path, b.title, b.author, b.format, b.cover_path, b.file_size,
                    b.modified_at, b.added_at, b.last_opened_at,
-                   COALESCE(p.percentage, 0.0)
+                   COALESCE(p.percentage, 0.0),
+                   COALESCE(b.archived, 0)
             FROM books b
             LEFT JOIN progress p ON p.book_id = b.id
             ORDER BY COALESCE(b.last_opened_at, b.added_at) DESC
             ",
         )?;
-        let rows = stmt.query_map([], |row| {
-            let format_str: String = row.get(4)?;
-            Ok(Book {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                title: row.get(2)?,
-                author: row.get(3)?,
-                format: BookFormat::parse(&format_str).unwrap_or(BookFormat::Txt),
-                cover_path: row.get(5)?,
-                file_size: row.get(6)?,
-                modified_at: row.get(7)?,
-                added_at: row.get(8)?,
-                last_opened_at: row.get(9)?,
-                progress_percentage: row.get(10)?,
-            })
-        })?;
+        let rows = stmt.query_map([], Self::map_book_row)?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
@@ -164,33 +188,63 @@ impl Database {
                 "
                 SELECT b.id, b.path, b.title, b.author, b.format, b.cover_path, b.file_size,
                        b.modified_at, b.added_at, b.last_opened_at,
-                       COALESCE(p.percentage, 0.0)
+                       COALESCE(p.percentage, 0.0),
+                       COALESCE(b.archived, 0)
                 FROM books b
                 LEFT JOIN progress p ON p.book_id = b.id
                 WHERE b.id = ?1
                 ",
                 params![id],
-                |row| {
-                    let format_str: String = row.get(4)?;
-                    Ok(Book {
-                        id: row.get(0)?,
-                        path: row.get(1)?,
-                        title: row.get(2)?,
-                        author: row.get(3)?,
-                        format: BookFormat::parse(&format_str).unwrap_or(BookFormat::Txt),
-                        cover_path: row.get(5)?,
-                        file_size: row.get(6)?,
-                        modified_at: row.get(7)?,
-                        added_at: row.get(8)?,
-                        last_opened_at: row.get(9)?,
-                        progress_percentage: row.get(10)?,
-                    })
-                },
+                Self::map_book_row,
             )
             .map_err(|e| match e {
                 rusqlite::Error::QueryReturnedNoRows => AppError::msg("Book not found"),
                 other => other.into(),
             })
+    }
+
+    pub fn is_path_excluded(&self, path: &str) -> AppResult<bool> {
+        let found: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM book_exclusions WHERE path = ?1",
+                params![path],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(found.is_some())
+    }
+
+    pub fn clear_path_exclusion(&self, path: &str) -> AppResult<()> {
+        self.conn
+            .execute("DELETE FROM book_exclusions WHERE path = ?1", params![path])?;
+        Ok(())
+    }
+
+    pub fn set_book_archived(&self, id: &str, archived: bool) -> AppResult<Book> {
+        let flag = if archived { 1 } else { 0 };
+        let n = self.conn.execute(
+            "UPDATE books SET archived = ?1 WHERE id = ?2",
+            params![flag, id],
+        )?;
+        if n == 0 {
+            return Err(AppError::msg("Book not found"));
+        }
+        self.get_book(id)
+    }
+
+    /// Remove book from catalog. Returns the removed book (for file cleanup by caller).
+    pub fn delete_book(&self, id: &str) -> AppResult<Book> {
+        let book = self.get_book(id)?;
+        let now = Utc::now().to_rfc3339();
+        self.conn.execute(
+            "INSERT INTO book_exclusions (path, excluded_at) VALUES (?1, ?2)
+             ON CONFLICT(path) DO UPDATE SET excluded_at = excluded.excluded_at",
+            params![book.path, now],
+        )?;
+        self.conn
+            .execute("DELETE FROM books WHERE id = ?1", params![id])?;
+        Ok(book)
     }
 
     pub fn upsert_book(
@@ -212,6 +266,7 @@ impl Database {
             .optional()?;
 
         if let Some((id,)) = existing {
+            // Preserve archived flag on metadata refresh.
             self.conn.execute(
                 "
                 UPDATE books
@@ -226,8 +281,8 @@ impl Database {
             let now = Utc::now().to_rfc3339();
             self.conn.execute(
                 "
-                INSERT INTO books (id, path, title, author, format, cover_path, file_size, modified_at, added_at)
-                VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8)
+                INSERT INTO books (id, path, title, author, format, cover_path, file_size, modified_at, added_at, archived)
+                VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?7, ?8, 0)
                 ",
                 params![
                     id,
@@ -252,25 +307,38 @@ impl Database {
         Ok(())
     }
 
-    pub fn remove_missing_books(&self, existing_paths: &[String]) -> AppResult<usize> {
-        if existing_paths.is_empty() {
-            let removed = self.conn.execute("DELETE FROM books", [])?;
-            return Ok(removed);
+    /// Drop catalog entries for files that used to live under library roots but
+    /// are no longer found. Imported / downloaded books outside roots are kept.
+    pub fn remove_missing_root_books(
+        &self,
+        existing_paths: &[String],
+        root_paths: &[String],
+    ) -> AppResult<usize> {
+        if root_paths.is_empty() {
+            return Ok(0);
         }
 
-        let placeholders = existing_paths
-            .iter()
-            .enumerate()
-            .map(|(i, _)| format!("?{}", i + 1))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let sql = format!("DELETE FROM books WHERE path NOT IN ({placeholders})");
-        let mut stmt = self.conn.prepare(&sql)?;
-        let params_vec: Vec<&dyn rusqlite::ToSql> = existing_paths
-            .iter()
-            .map(|p| p as &dyn rusqlite::ToSql)
-            .collect();
-        let removed = stmt.execute(params_vec.as_slice())?;
+        let mut stmt = self.conn.prepare("SELECT id, path FROM books")?;
+        let catalog: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let existing: std::collections::HashSet<&str> =
+            existing_paths.iter().map(String::as_str).collect();
+        let mut removed = 0usize;
+
+        for (id, path) in catalog {
+            if !path_is_under_any_root(&path, root_paths) {
+                continue;
+            }
+            if existing.contains(path.as_str()) {
+                continue;
+            }
+            self.conn
+                .execute("DELETE FROM books WHERE id = ?1", params![id])?;
+            removed += 1;
+        }
+
         Ok(removed)
     }
 
@@ -405,4 +473,27 @@ impl Database {
         )?;
         Ok(())
     }
+}
+
+fn path_is_under_any_root(path: &str, roots: &[String]) -> bool {
+    let path_norm = normalize_path_key(path);
+    roots.iter().any(|root| {
+        let root_norm = normalize_path_key(root);
+        path_norm == root_norm
+            || path_norm.starts_with(&(root_norm.clone() + "/"))
+            || path_norm.starts_with(&(root_norm + "\\"))
+    })
+}
+
+fn normalize_path_key(path: &str) -> String {
+    let mut s = path.replace('/', "\\");
+    while s.ends_with('\\') && s.len() > 1 {
+        s.pop();
+    }
+    // Case-insensitive compare on Windows.
+    #[cfg(windows)]
+    {
+        s = s.to_ascii_lowercase();
+    }
+    s
 }

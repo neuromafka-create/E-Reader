@@ -12,6 +12,8 @@ export interface Book {
   addedAt: string;
   lastOpenedAt: string | null;
   progressPercentage: number;
+  /** Soft-hidden from the main library grid. */
+  archived?: boolean;
 }
 
 export interface LibraryRoot {

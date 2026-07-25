@@ -208,6 +208,36 @@
     }
   }
 
+  async function archiveBook(book: Book, archived: boolean) {
+    busy = true;
+    try {
+      await api.setBookArchived(book.id, archived);
+      await refresh();
+      status = archived
+        ? t("statusBookArchived", { title: book.title })
+        : t("statusBookRestored", { title: book.title });
+    } catch (e) {
+      status = String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function deleteBook(book: Book) {
+    const ok = window.confirm(t("confirmDeleteBook", { title: book.title }));
+    if (!ok) return;
+    busy = true;
+    try {
+      await api.deleteBook(book.id);
+      await refresh();
+      status = t("statusBookDeleted", { title: book.title });
+    } catch (e) {
+      status = String(e);
+    } finally {
+      busy = false;
+    }
+  }
+
   async function backToLibrary() {
     content = null;
     await refresh();
@@ -253,6 +283,8 @@
       onScan={scan}
       onRemoveRoot={removeRoot}
       onOpenBook={openBook}
+      onArchiveBook={archiveBook}
+      onDeleteBook={deleteBook}
       onLocaleChange={onLocaleChange}
       onThemeChange={onThemeChange}
     />

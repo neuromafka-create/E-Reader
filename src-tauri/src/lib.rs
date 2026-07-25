@@ -22,6 +22,8 @@ pub fn run() {
             commands::add_library_root,
             commands::remove_library_root,
             commands::list_books,
+            commands::set_book_archived,
+            commands::delete_book,
             commands::scan_library,
             commands::import_files,
             commands::ingest_paths,

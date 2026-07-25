@@ -20,6 +20,15 @@ export type MessageKey =
   | "ready"
   | "unknownAuthor"
   | "lastScan"
+  | "archive"
+  | "unarchive"
+  | "deleteBook"
+  | "archiveSection"
+  | "confirmDeleteBook"
+  | "statusBookArchived"
+  | "statusBookRestored"
+  | "statusBookDeleted"
+  | "noActiveBooks"
   | "language"
   | "backToLibrary"
   | "readingProgress"
@@ -82,6 +91,16 @@ export const ru: Messages = {
   ready: "Готово",
   unknownAuthor: "Автор неизвестен",
   lastScan: "Последнее сканирование: +{added} · ~{updated} · −{removed} · всего {total}",
+  archive: "В архив",
+  unarchive: "Из архива",
+  deleteBook: "Удалить",
+  archiveSection: "Архив ({n})",
+  confirmDeleteBook:
+    "Удалить «{title}» из библиотеки? Прогресс и закладки будут потеряны. Файлы в папках библиотеки на диске не трогаем.",
+  statusBookArchived: "«{title}» перенесена в архив",
+  statusBookRestored: "«{title}» возвращена в библиотеку",
+  statusBookDeleted: "«{title}» удалена из библиотеки",
+  noActiveBooks: "Активных книг нет — они в архиве или ещё не добавлены.",
   language: "Язык",
   backToLibrary: "← Библиотека",
   readingProgress: "Прогресс чтения",
@@ -143,6 +162,16 @@ export const en: Messages = {
   ready: "Ready",
   unknownAuthor: "Unknown author",
   lastScan: "Last scan: +{added} · ~{updated} · −{removed} · total {total}",
+  archive: "Archive",
+  unarchive: "Restore",
+  deleteBook: "Delete",
+  archiveSection: "Archive ({n})",
+  confirmDeleteBook:
+    "Remove “{title}” from the library? Progress and bookmarks will be lost. Files in library folders are not deleted from disk.",
+  statusBookArchived: "“{title}” moved to archive",
+  statusBookRestored: "“{title}” restored to library",
+  statusBookDeleted: "“{title}” removed from library",
+  noActiveBooks: "No active books — they are archived or none have been added yet.",
   language: "Language",
   backToLibrary: "← Library",
   readingProgress: "Reading progress",

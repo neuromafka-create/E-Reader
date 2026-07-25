@@ -18,6 +18,9 @@ export const api = {
   removeLibraryRoot: (id: string) =>
     invoke<void>("remove_library_root", { id }),
   listBooks: () => invoke<Book[]>("list_books"),
+  setBookArchived: (id: string, archived: boolean) =>
+    invoke<Book>("set_book_archived", { id, archived }),
+  deleteBook: (id: string) => invoke<void>("delete_book", { id }),
   scanLibrary: () => invoke<ScanResult>("scan_library"),
   importFiles: (paths: string[]) =>
     invoke<number>("import_files", { paths }),

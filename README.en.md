@@ -1,5 +1,7 @@
 # E-Reader
 
+**Version 1.2.0** · [Changelog](./CHANGELOG.md)
+
 > 🇷🇺 [Russian README](./README.md)
 
 Desktop e-reader (Windows-first, cross-platform ready) built with **Rust + Tauri 2 + SvelteKit**.
@@ -17,6 +19,7 @@ Desktop e-reader (Windows-first, cross-platform ready) built with **Rust + Tauri
 - Shared theme and language: change on the library screen or in the reader — both persist
 - Hybrid library: folders and/or individual file import
 - SQLite: books, progress, bookmarks, reader settings
+- **Archive** (compact collapsible list) and **delete** books from the library
 - Reader themes (sepia / light / dark)
 - **Reader typography**: font family picker (Georgia, Times, Arial, Segoe UI, and more) and numeric size (12–40 px), saved in settings
 - **Stable reading positions**: document fraction + nearest section anchor
@@ -106,4 +109,5 @@ App data (`library.db`, `covers/`) lives in the OS app data dir for `com.mafka.e
 5. ~~Covers + metadata~~
 6. ~~Stable progress positions + Windows packaging~~
 7. ~~Open-with / drag-drop import path from OS~~
-8. Optional cloud sync (later)
+8. ~~Typography, in-reader links, archive & delete (v1.2)~~
+9. Optional cloud sync (later)
