@@ -62,6 +62,7 @@
         document.title = t("appTitle");
       }
     } catch (e) {
+      console.error(e);
       status = String(e);
     }
   }
@@ -70,6 +71,7 @@
     try {
       await setUiTheme(theme);
     } catch (e) {
+      console.error(e);
       status = String(e);
     }
   }

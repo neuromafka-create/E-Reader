@@ -1,0 +1,27 @@
+# Application IPC commands used by the Svelte frontend.
+[[permission]]
+identifier = "allow-app"
+description = "Allows all E-Reader backend commands"
+commands.allow = [
+  "list_library_roots",
+  "add_library_root",
+  "remove_library_root",
+  "list_books",
+  "set_book_archived",
+  "delete_book",
+  "scan_library",
+  "import_files",
+  "ingest_paths",
+  "get_launch_paths",
+  "open_book",
+  "import_from_url",
+  "get_cover_data_url",
+  "save_progress",
+  "get_progress",
+  "list_bookmarks",
+  "add_bookmark",
+  "remove_bookmark",
+  "get_reader_settings",
+  "save_reader_settings",
+  "get_supported_formats",
+]

@@ -10,8 +10,16 @@ const config = {
   preprocess: vitePreprocess(),
   kit: {
     adapter: adapter({
-      fallback: "index.html",
+      // Do NOT use fallback: "index.html" — it overwrites the prerendered
+      // shell and leaves a nearly empty SPA page (blank window risk in Tauri).
+      // This app is a single route (`/`); prerender covers it.
+      strict: true,
     }),
+    // Absolute `/_app/...` paths (not relative). Relative URLs break module
+    // + CSS loading under Tauri's https://tauri.localhost origin.
+    paths: {
+      relative: false,
+    },
   },
 };
 

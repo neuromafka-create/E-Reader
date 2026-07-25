@@ -1,5 +1,7 @@
-// Tauri doesn't have a Node.js server to do proper SSR
-// so we use adapter-static with a fallback to index.html to put the site in SPA mode
-// See: https://svelte.dev/docs/kit/single-page-apps
-// See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
-export const ssr = false;
+// Static SPA for Tauri (no Node server at runtime).
+// Prerender the shell so installed builds still show UI if JS is slow;
+// Tauri IPC only runs in onMount / event handlers (never during build).
+// See: https://v2.tauri.app/start/frontend/sveltekit/
+export const ssr = true;
+export const prerender = true;
+export const csr = true;

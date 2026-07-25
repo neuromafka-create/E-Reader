@@ -114,15 +114,22 @@ export async function patchPrefs(
   }
 
   settings = next;
-  await api.saveReaderSettings(settings);
+  // Apply UI immediately even if persistence fails (e.g. ACL / IPC issues).
+  try {
+    await api.saveReaderSettings(settings);
+  } catch (e) {
+    console.error("saveReaderSettings failed", e);
+  }
   return settings;
 }
 
 export async function setUiLocale(locale: Locale): Promise<void> {
+  // Apply in-memory first so the select always updates the UI.
   setLocale(locale);
   await patchPrefs({ locale });
 }
 
 export async function setUiTheme(next: ThemeId): Promise<void> {
+  applyTheme(next);
   await patchPrefs({ theme: next });
 }

@@ -11,7 +11,11 @@ import type { IngestResult } from "$lib/types";
 export type { Locale, MessageKey };
 export { LOCALES };
 
-let locale: Locale = $state(detectDefaultLocale());
+// Fixed initial locale for SSR/prerender + first client paint.
+// Detecting navigator language here caused hydration mismatches in the
+// installed Tauri build (blank white window). Real preference is applied
+// in loadPrefs() after mount.
+let locale: Locale = $state("ru");
 let ready = $state(false);
 
 export function getLocale(): Locale {
