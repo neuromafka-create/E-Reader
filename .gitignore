@@ -23,6 +23,9 @@ vite.config.ts.timestamp-*
 .crate-tmp/
 *.tmp
 
+# Local notes / AI chat exports
+01 Qwen 3.7.md
+
 # IDE (optional local)
 .idea/
 *.swp
