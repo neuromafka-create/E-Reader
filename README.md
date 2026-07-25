@@ -13,6 +13,20 @@
 | EPUB | да | да + оглавление + картинки | title, author, cover |
 | FB2 | да | да + оглавление + картинки | title, author, cover |
 
+## Скриншоты
+
+<p align="center">
+  <img src="docs/screenshots/library-dark.png" alt="Библиотека — тёмная тема" width="720" />
+</p>
+
+<p align="center"><em>Библиотека: обложки, архив и удаление, язык и тема</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/reader-sepia.png" alt="Читалка — сепия" width="720" />
+</p>
+
+<p align="center"><em>Режим чтения: оглавление, шрифт, размер, закладки</em></p>
+
 ## Возможности
 
 - Интерфейс на **русском** и **английском** (выбор языка в библиотеке и в читалке)

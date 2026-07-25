@@ -13,6 +13,20 @@ Desktop e-reader (Windows-first, cross-platform ready) built with **Rust + Tauri
 | EPUB | yes | yes + TOC + images | title, author, cover |
 | FB2 | yes | yes + TOC + images | title, author, cover |
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/library-dark.png" alt="Library — dark theme" width="720" />
+</p>
+
+<p align="center"><em>Library: covers, archive & delete, language and theme</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/reader-sepia.png" alt="Reader — sepia theme" width="720" />
+</p>
+
+<p align="center"><em>Reader: table of contents, font controls, bookmarks</em></p>
+
 ## Features
 
 - UI in **Russian** and **English** (language picker in library and reader; preference is saved)

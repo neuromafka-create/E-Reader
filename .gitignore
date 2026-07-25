@@ -30,3 +30,7 @@ vite.config.ts.timestamp-*
 .idea/
 *.swp
 *~
+
+# Local screenshots (use docs/screenshots/)
+Screenshot*.png
+
