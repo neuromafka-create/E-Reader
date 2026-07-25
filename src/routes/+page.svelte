@@ -212,6 +212,19 @@
     content = null;
     await refresh();
   }
+
+  /** Open a book that was just downloaded from a link inside the reader. */
+  async function onBookImported(bookId: string) {
+    busy = true;
+    try {
+      content = await api.openBook(bookId);
+      await refresh();
+    } catch (e) {
+      status = String(e);
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 <div
@@ -226,6 +239,7 @@
       onBack={backToLibrary}
       onLocaleChange={onLocaleChange}
       onThemeChange={onThemeChange}
+      onBookImported={onBookImported}
     />
   {:else}
     <LibraryView

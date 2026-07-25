@@ -132,6 +132,18 @@ pub struct IngestResult {
     pub message: String,
 }
 
+/// Result of downloading a remote URL into the library.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportFromUrlResult {
+    pub success: bool,
+    pub open_book_id: Option<String>,
+    pub title: Option<String>,
+    pub path: Option<String>,
+    pub message: String,
+    pub open_externally: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReaderSettings {

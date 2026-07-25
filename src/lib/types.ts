@@ -66,6 +66,15 @@ export interface IngestResult {
   message: string;
 }
 
+export interface ImportFromUrlResult {
+  success: boolean;
+  openBookId: string | null;
+  title: string | null;
+  path: string | null;
+  message: string;
+  openExternally: boolean;
+}
+
 export interface ReaderSettings {
   fontFamily: string;
   fontSize: number;

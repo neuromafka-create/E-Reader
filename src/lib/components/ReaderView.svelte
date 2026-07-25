@@ -17,27 +17,42 @@
   } from "$lib/position";
   import { t, type Locale } from "$lib/i18n/index.svelte";
   import {
+    FONT_FAMILIES,
+    FONT_SIZE_MAX,
+    FONT_SIZE_MIN,
+    clampFontSize,
     getSettings,
     getTheme,
     patchPrefs,
     type ThemeId,
   } from "$lib/prefs.svelte";
   import AppChromePrefs from "$lib/components/AppChromePrefs.svelte";
+  import { openUrl } from "@tauri-apps/plugin-opener";
 
   interface Props {
     content: BookContent;
     onBack: () => void;
     onLocaleChange: (locale: Locale) => void;
     onThemeChange: (theme: ThemeId) => void;
+    /** Called after a book was downloaded from a link and added to the library. */
+    onBookImported?: (bookId: string) => void;
   }
 
-  let { content, onBack, onLocaleChange, onThemeChange }: Props = $props();
+  let { content, onBack, onLocaleChange, onThemeChange, onBookImported }: Props =
+    $props();
 
   // Reader-only controls; theme/locale come from shared prefs.
   let fontSize = $state(18);
   let fontFamily = $state("Georgia, 'Times New Roman', serif");
   let lineHeight = $state(1.7);
   let maxWidth = $state(720);
+
+  const knownFontFamily = $derived(
+    FONT_FAMILIES.some((f) => f.value === fontFamily),
+  );
+  const customFontLabel = $derived(
+    fontFamily.split(",")[0]?.replace(/['"]/g, "").trim() || fontFamily,
+  );
 
   const theme = $derived(getTheme());
 
@@ -59,8 +74,8 @@
     progressPct = content.progress?.percentage ?? 0;
     try {
       const s = getSettings();
-      fontSize = s.fontSize;
-      fontFamily = s.fontFamily;
+      fontSize = clampFontSize(s.fontSize);
+      fontFamily = s.fontFamily || "Georgia, 'Times New Roman', serif";
       lineHeight = s.lineHeight;
       maxWidth = s.maxWidth;
       if (content.readable) {
@@ -126,6 +141,7 @@
   }
 
   async function persistReaderTypography() {
+    fontSize = clampFontSize(Number(fontSize));
     try {
       await patchPrefs({
         fontSize,
@@ -145,6 +161,15 @@
     } catch (e) {
       status = String(e);
     }
+  }
+
+  function onFontFamilyChange(event: Event) {
+    fontFamily = (event.target as HTMLSelectElement).value;
+    void persistReaderTypography();
+  }
+
+  function onFontSizeChange() {
+    void persistReaderTypography();
   }
 
   async function addBookmarkHere() {
@@ -226,6 +251,114 @@
     articleEl.scrollBy({ top: dir * step, behavior: "smooth" });
   }
 
+  /**
+   * Intercept links inside book HTML:
+   * - #anchors → scroll in-reader
+   * - http(s) book/download → download into library
+   * - other http(s) → system browser (never navigate the Tauri window)
+   */
+  async function onContentClick(event: MouseEvent) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const anchor = target.closest("a");
+    if (!anchor) return;
+
+    const href = anchor.getAttribute("href");
+    if (!href || href === "" || href.startsWith("javascript:")) {
+      event.preventDefault();
+      return;
+    }
+
+    // In-document anchors
+    if (href.startsWith("#")) {
+      event.preventDefault();
+      const id = decodeURIComponent(href.slice(1));
+      if (id && articleEl) {
+        jumpToAnchor(articleEl, id, true);
+        activeTocId = id;
+        setTimeout(() => void persistProgress(), 400);
+      }
+      return;
+    }
+
+    // Relative file links inside epub are usually rewritten; treat as external if absolute
+    if (href.startsWith("http://") || href.startsWith("https://")) {
+      event.preventDefault();
+      event.stopPropagation();
+      await handleExternalLink(href, anchor.textContent ?? "");
+      return;
+    }
+
+    // Block other navigations (file://, relative) that would leave the reader blank
+    event.preventDefault();
+  }
+
+  async function handleExternalLink(url: string, linkText: string) {
+    const lower = url.toLowerCase();
+    const text = linkText.toLowerCase();
+    const looksLikeBook =
+      /\.(epub|fb2|txt|md|markdown)(\?|$)/i.test(url) ||
+      lower.includes("download") ||
+      lower.includes("/dl/") ||
+      text.includes("скач") ||
+      text.includes("download") ||
+      // Author product pages often host free book downloads
+      lower.includes("/product/");
+
+    // Payments / donations → browser only
+    if (
+      lower.includes("paypal.") ||
+      lower.includes("donate") ||
+      lower.includes("payment") ||
+      lower.includes("patreon.") ||
+      lower.includes("boosty.")
+    ) {
+      try {
+        await openUrl(url);
+        status = t("linkOpenedExternally");
+      } catch (e) {
+        status = String(e);
+      }
+      return;
+    }
+
+    if (looksLikeBook) {
+      status = t("statusDownloading");
+      try {
+        const result = await api.importFromUrl(url);
+        if (result.success && result.openBookId) {
+          status = t("linkImported", {
+            title: result.title ?? result.openBookId,
+          });
+          onBookImported?.(result.openBookId);
+          return;
+        }
+        if (result.openExternally) {
+          await openUrl(url);
+          status = t("linkOpenedExternally");
+          return;
+        }
+        status = t("linkImportFailed", { detail: result.message });
+      } catch (e) {
+        status = t("linkImportFailed", { detail: String(e) });
+        try {
+          await openUrl(url);
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
+
+    // Generic web link
+    try {
+      await openUrl(url);
+      status = t("linkOpenedExternally");
+    } catch (e) {
+      status = String(e);
+    }
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement | null)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -287,13 +420,28 @@
         {Math.round(progressPct)}%
       </span>
       <label>
-        {t("fontSize")}
+        <span>{t("fontFamily")}</span>
+        <select value={fontFamily} onchange={onFontFamilyChange}>
+          {#if !knownFontFamily}
+            <option value={fontFamily}>{customFontLabel}</option>
+          {/if}
+          {#each FONT_FAMILIES as face (face.value)}
+            <option value={face.value} style={`font-family: ${face.value}`}>
+              {face.label}
+            </option>
+          {/each}
+        </select>
+      </label>
+      <label>
+        <span>{t("fontSize")}</span>
         <input
-          type="range"
-          min="14"
-          max="28"
+          class="font-size-input"
+          type="number"
+          min={FONT_SIZE_MIN}
+          max={FONT_SIZE_MAX}
+          step="1"
           bind:value={fontSize}
-          onchange={persistReaderTypography}
+          onchange={onFontSizeChange}
         />
       </label>
       <AppChromePrefs
@@ -323,64 +471,69 @@
   <div class="body">
     {#if showSidebar}
       <aside class="sidebar">
-        {#if content.toc.length > 0}
-          <h2>{t("contents")}</h2>
-          <ul class="toc">
-            {#each content.toc as entry (entry.id + entry.title)}
-              <li style={`padding-left: ${(entry.level - 1) * 0.75}rem`}>
-                <button
-                  type="button"
-                  class="link"
-                  class:active={activeTocId === entry.id}
-                  onclick={() => jumpToc(entry)}>{entry.title}</button
-                >
-              </li>
-            {/each}
-          </ul>
-        {/if}
+        <div class="sidebar-inner">
+          {#if content.toc.length > 0}
+            <h2>{t("contents")}</h2>
+            <ul class="toc">
+              {#each content.toc as entry (entry.id + entry.title)}
+                <li style={`padding-left: ${(entry.level - 1) * 0.75}rem`}>
+                  <button
+                    type="button"
+                    class="link"
+                    class:active={activeTocId === entry.id}
+                    onclick={() => jumpToc(entry)}>{entry.title}</button
+                  >
+                </li>
+              {/each}
+            </ul>
+          {/if}
 
-        <h2>{t("bookmarks")}</h2>
-        {#if bookmarks.length === 0}
-          <p class="muted">{@html t("noBookmarks", { key: "<kbd>B</kbd>" })}</p>
-        {:else}
-          <ul class="bookmarks">
-            {#each bookmarks as bm (bm.id)}
-              <li>
-                <button
-                  type="button"
-                  class="link quote"
-                  title={bookmarkDisplay(bm)}
-                  onclick={() => jumpTo(bm.position)}
-                >
-                  <span class="quote-text">«{bookmarkQuote(bm)}»</span>
-                  {#if bookmarkPage(bm)}
-                    <span class="quote-page">{t("pageAbbr")} {bookmarkPage(bm)}</span>
-                  {/if}
-                </button>
-                <button type="button" class="tiny" onclick={() => removeBookmark(bm.id)}
-                  >×</button
-                >
-              </li>
-            {/each}
-          </ul>
-        {/if}
+          <h2>{t("bookmarks")}</h2>
+          {#if bookmarks.length === 0}
+            <p class="muted">{@html t("noBookmarks", { key: "<kbd>B</kbd>" })}</p>
+          {:else}
+            <ul class="bookmarks">
+              {#each bookmarks as bm (bm.id)}
+                <li>
+                  <button
+                    type="button"
+                    class="link quote"
+                    title={bookmarkDisplay(bm)}
+                    onclick={() => jumpTo(bm.position)}
+                  >
+                    <span class="quote-text">«{bookmarkQuote(bm)}»</span>
+                    {#if bookmarkPage(bm)}
+                      <span class="quote-page">{t("pageAbbr")} {bookmarkPage(bm)}</span>
+                    {/if}
+                  </button>
+                  <button type="button" class="tiny" onclick={() => removeBookmark(bm.id)}
+                    >×</button
+                  >
+                </li>
+              {/each}
+            </ul>
+          {/if}
 
-        <p class="hints">
-          {@html t("readerHints", {
-            left: "<kbd>←</kbd>",
-            right: "<kbd>→</kbd>",
-            esc: "<kbd>Esc</kbd>",
-            b: "<kbd>B</kbd>",
-          })}
-        </p>
+          <p class="hints">
+            {@html t("readerHints", {
+              left: "<kbd>←</kbd>",
+              right: "<kbd>→</kbd>",
+              esc: "<kbd>Esc</kbd>",
+              b: "<kbd>B</kbd>",
+            })}
+          </p>
+        </div>
+        <!-- fixed bottom gutter so last TOC/bookmark rows are not flush with the edge -->
+        <div class="bottom-gutter" aria-hidden="true"></div>
       </aside>
     {/if}
 
     {#if content.readable}
-      <article
+      <div
         class="page"
         bind:this={articleEl}
         onscroll={onScroll}
+        role="document"
         style={`
           font-family: ${fontFamily};
           font-size: ${fontSize}px;
@@ -388,8 +541,14 @@
           max-width: ${maxWidth}px;
         `}
       >
-        {@html content.html}
-      </article>
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="page-inner" role="presentation" onclick={onContentClick}>
+          {@html content.html}
+        </div>
+        <!-- fixed bottom gutter so text is not flush with the window bottom -->
+        <div class="bottom-gutter" aria-hidden="true"></div>
+      </div>
     {:else}
       <div class="unavailable">
         <h2>{t("formatUnavailableTitle")}</h2>
@@ -473,10 +632,33 @@
     gap: 0.35rem;
     font-size: 0.85rem;
     color: var(--reader-muted);
+    font-weight: 500;
   }
 
-  input[type="range"] {
+  label span {
+    white-space: nowrap;
+  }
+
+  select,
+  .font-size-input {
+    border: 1px solid var(--reader-border);
+    border-radius: 8px;
+    padding: 0.25rem 0.4rem;
+    font: inherit;
+    font-size: 0.85rem;
+    background: var(--reader-bg);
+    color: var(--reader-text);
+  }
+
+  .font-size-input {
+    width: 3.5rem;
+    text-align: center;
     accent-color: var(--reader-accent);
+  }
+
+  .font-size-input::-webkit-outer-spin-button,
+  .font-size-input::-webkit-inner-spin-button {
+    opacity: 1;
   }
 
   button {
@@ -533,14 +715,24 @@
     min-height: 0;
     display: grid;
     grid-template-columns: auto 1fr;
+    /* permanent bottom field under reading + TOC columns */
+    padding-bottom: 20px;
+    box-sizing: border-box;
   }
 
   .sidebar {
     width: 280px;
+    height: 100%;
+    min-height: 0;
     overflow: auto;
     border-right: 1px solid var(--reader-border);
     background: var(--reader-panel);
-    padding: 1rem;
+    padding: 1rem 1rem 0;
+    box-sizing: border-box;
+  }
+
+  .sidebar-inner {
+    min-height: min-content;
   }
 
   .sidebar h2 {
@@ -558,6 +750,15 @@
     padding: 0;
     display: grid;
     gap: 0.25rem;
+  }
+
+  /* Always reserve empty space at the bottom of scroll areas */
+  .bottom-gutter {
+    height: 20px;
+    min-height: 20px;
+    width: 100%;
+    flex-shrink: 0;
+    pointer-events: none;
   }
 
   .bookmarks li {
@@ -624,10 +825,19 @@
   }
 
   .page {
+    height: 100%;
+    min-height: 0;
     overflow: auto;
-    padding: 2.5rem 2rem 4rem;
+    padding: 2.5rem 2rem 0;
     margin: 0 auto;
     width: 100%;
+    box-sizing: border-box;
+  }
+
+  .page-inner {
+    max-width: 100%;
+    /* space after the last paragraph before the bottom gutter */
+    padding-bottom: 2.5rem;
   }
 
   .page :global(article) {

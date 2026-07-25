@@ -11,6 +11,28 @@ export type ThemeId = "sepia" | "light" | "dark";
 
 export const THEMES: ThemeId[] = ["sepia", "light", "dark"];
 
+/** Built-in reading typefaces (CSS font-family stacks). */
+export const FONT_FAMILIES: { value: string; label: string }[] = [
+  { value: "Georgia, 'Times New Roman', serif", label: "Georgia" },
+  { value: "'Times New Roman', Times, serif", label: "Times New Roman" },
+  { value: "'Palatino Linotype', Palatino, 'Book Antiqua', serif", label: "Palatino" },
+  { value: "Cambria, Georgia, serif", label: "Cambria" },
+  { value: "Arial, Helvetica, sans-serif", label: "Arial" },
+  { value: "Verdana, Geneva, sans-serif", label: "Verdana" },
+  { value: "Calibri, 'Segoe UI', sans-serif", label: "Calibri" },
+  { value: "'Segoe UI', system-ui, sans-serif", label: "Segoe UI" },
+  { value: "Consolas, 'Courier New', monospace", label: "Consolas" },
+];
+
+export const FONT_SIZE_MIN = 12;
+export const FONT_SIZE_MAX = 40;
+export const FONT_SIZE_DEFAULT = 18;
+
+export function clampFontSize(value: number): number {
+  if (!Number.isFinite(value)) return FONT_SIZE_DEFAULT;
+  return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(value)));
+}
+
 export function isTheme(value: string | null | undefined): value is ThemeId {
   return value === "sepia" || value === "light" || value === "dark";
 }
@@ -21,8 +43,8 @@ let loaded = $state(false);
 
 export function defaultSettings(): ReaderSettings {
   return {
-    fontFamily: "Georgia, 'Times New Roman', serif",
-    fontSize: 18,
+    fontFamily: FONT_FAMILIES[0].value,
+    fontSize: FONT_SIZE_DEFAULT,
     lineHeight: 1.7,
     theme: "sepia",
     maxWidth: 720,
@@ -55,6 +77,7 @@ export async function loadPrefs(): Promise<ReaderSettings> {
   try {
     const remote = await api.getReaderSettings();
     settings = Object.assign({}, defaultSettings(), remote);
+    settings.fontSize = clampFontSize(settings.fontSize);
   } catch {
     settings = defaultSettings();
   }
@@ -78,6 +101,9 @@ export async function patchPrefs(
     ...patch,
   };
 
+  if (patch.fontSize !== undefined) {
+    next.fontSize = clampFontSize(Number(patch.fontSize));
+  }
   if (patch.locale) {
     setLocale(patch.locale as Locale);
     next.locale = getLocale();

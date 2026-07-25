@@ -2,7 +2,8 @@ use crate::db::Database;
 use crate::error::{AppError, AppResult};
 use crate::formats::{self, title_from_path};
 use crate::models::{
-    Book, BookContent, Bookmark, IngestResult, LibraryRoot, Progress, ReaderSettings, ScanResult,
+    Book, BookContent, Bookmark, ImportFromUrlResult, IngestResult, LibraryRoot, Progress,
+    ReaderSettings, ScanResult,
 };
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use std::path::{Path, PathBuf};
@@ -283,6 +284,72 @@ pub fn collect_launch_paths() -> Vec<String> {
             None
         })
         .collect()
+}
+
+/// Download a remote URL (direct file or product page with download links)
+/// into the library folder and index it.
+#[tauri::command]
+pub async fn import_from_url(
+    state: State<'_, AppState>,
+    url: String,
+) -> AppResult<ImportFromUrlResult> {
+    let downloads = state.data_dir.join("downloads");
+    // Do not hold DB locks across await.
+    let result = crate::download::import_from_url(&url, &downloads).await?;
+
+    if !result.success {
+        return Ok(ImportFromUrlResult {
+            success: false,
+            open_book_id: None,
+            title: None,
+            path: result.path,
+            message: result.message,
+            open_externally: result.open_externally,
+        });
+    }
+
+    let Some(path_str) = result.path.clone() else {
+        return Ok(ImportFromUrlResult {
+            success: false,
+            open_book_id: None,
+            title: None,
+            path: None,
+            message: "Download succeeded but path is missing.".into(),
+            open_externally: false,
+        });
+    };
+
+    let path = PathBuf::from(&path_str);
+    let Some(format) = formats::detect_format(&path) else {
+        return Ok(ImportFromUrlResult {
+            success: false,
+            open_book_id: None,
+            title: None,
+            path: Some(path_str),
+            message: "Downloaded file is not a supported book format.".into(),
+            open_externally: false,
+        });
+    };
+
+    let meta = std::fs::metadata(&path).ok();
+    let file_size = meta.as_ref().map(|m| m.len() as i64).unwrap_or(0);
+    let modified_at = meta.and_then(|m| m.modified().ok()).map(|t| {
+        let dt: chrono::DateTime<chrono::Utc> = t.into();
+        dt.to_rfc3339()
+    });
+
+    let (_is_new, id) = index_book(&state, &path, format, file_size, modified_at)?;
+    let book = with_db(&state, |db| db.get_book(&id))?;
+    let title = book.title;
+
+    Ok(ImportFromUrlResult {
+        success: true,
+        open_book_id: Some(id),
+        title: Some(title.clone()),
+        path: Some(path_str),
+        message: format!("Book added to library: {title}"),
+        open_externally: false,
+    })
 }
 
 #[tauri::command]

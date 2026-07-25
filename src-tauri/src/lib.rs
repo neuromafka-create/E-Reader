@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod download;
 mod error;
 mod formats;
 mod models;
@@ -26,6 +27,7 @@ pub fn run() {
             commands::ingest_paths,
             commands::get_launch_paths,
             commands::open_book,
+            commands::import_from_url,
             commands::get_cover_data_url,
             commands::save_progress,
             commands::get_progress,

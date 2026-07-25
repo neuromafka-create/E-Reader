@@ -24,6 +24,7 @@ export type MessageKey =
   | "backToLibrary"
   | "readingProgress"
   | "fontSize"
+  | "fontFamily"
   | "theme"
   | "themeSepia"
   | "themeLight"
@@ -50,6 +51,10 @@ export type MessageKey =
   | "statusScanComplete"
   | "statusFolderRemoved"
   | "statusOpening"
+  | "statusDownloading"
+  | "linkImported"
+  | "linkOpenedExternally"
+  | "linkImportFailed"
   | "ingestNothingSkipped"
   | "ingestNothing"
   | "ingestImported"
@@ -81,6 +86,7 @@ export const ru: Messages = {
   backToLibrary: "← Библиотека",
   readingProgress: "Прогресс чтения",
   fontSize: "Размер",
+  fontFamily: "Шрифт",
   theme: "Тема",
   themeSepia: "Сепия",
   themeLight: "Светлая",
@@ -107,6 +113,10 @@ export const ru: Messages = {
   statusScanComplete: "Сканирование завершено: {total} книг.",
   statusFolderRemoved: "Папка удалена, библиотека пересканирована.",
   statusOpening: "Открытие «{title}»…",
+  statusDownloading: "Скачивание книги…",
+  linkImported: "Книга добавлена в библиотеку: «{title}»",
+  linkOpenedExternally: "Ссылка открыта во внешнем браузере",
+  linkImportFailed: "Не удалось скачать книгу. {detail}",
   ingestNothingSkipped: "Ничего не импортировано (пропущено путей: {skipped}).",
   ingestNothing: "Нечего импортировать",
   ingestImported: "Импортировано: {parts}",
@@ -137,6 +147,7 @@ export const en: Messages = {
   backToLibrary: "← Library",
   readingProgress: "Reading progress",
   fontSize: "Size",
+  fontFamily: "Font",
   theme: "Theme",
   themeSepia: "Sepia",
   themeLight: "Light",
@@ -163,6 +174,10 @@ export const en: Messages = {
   statusScanComplete: "Scan complete: {total} books.",
   statusFolderRemoved: "Folder removed and library rescanned.",
   statusOpening: "Opening {title}…",
+  statusDownloading: "Downloading book…",
+  linkImported: "Book added to library: “{title}”",
+  linkOpenedExternally: "Link opened in the system browser",
+  linkImportFailed: "Could not download the book. {detail}",
   ingestNothingSkipped: "Nothing imported ({skipped} path(s) skipped).",
   ingestNothing: "Nothing to import",
   ingestImported: "Imported {parts}",

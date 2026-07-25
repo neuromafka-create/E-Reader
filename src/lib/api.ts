@@ -3,6 +3,7 @@ import type {
   Book,
   BookContent,
   Bookmark,
+  ImportFromUrlResult,
   IngestResult,
   LibraryRoot,
   Progress,
@@ -24,6 +25,8 @@ export const api = {
     invoke<IngestResult>("ingest_paths", { paths }),
   getLaunchPaths: () => invoke<string[]>("get_launch_paths"),
   openBook: (id: string) => invoke<BookContent>("open_book", { id }),
+  importFromUrl: (url: string) =>
+    invoke<ImportFromUrlResult>("import_from_url", { url }),
   getCoverDataUrl: (bookId: string) =>
     invoke<string | null>("get_cover_data_url", { bookId }),
   saveProgress: (bookId: string, position: string, percentage: number) =>

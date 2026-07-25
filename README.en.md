@@ -14,9 +14,11 @@ Desktop e-reader (Windows-first, cross-platform ready) built with **Rust + Tauri
 ## Features
 
 - UI in **Russian** and **English** (language picker in library and reader; preference is saved)
+- Shared theme and language: change on the library screen or in the reader — both persist
 - Hybrid library: folders and/or individual file import
 - SQLite: books, progress, bookmarks, reader settings
-- Reader themes (sepia / light / dark), font size
+- Reader themes (sepia / light / dark)
+- **Reader typography**: font family picker (Georgia, Times, Arial, Segoe UI, and more) and numeric size (12–40 px), saved in settings
 - **Stable reading positions**: document fraction + nearest section anchor
   (survives font-size changes better than raw pixel offsets; old `scroll:px` still works)
 - Active TOC highlight while scrolling
@@ -25,6 +27,7 @@ Desktop e-reader (Windows-first, cross-platform ready) built with **Rust + Tauri
 - Windows installers (NSIS + MSI)
 - Open-with / CLI: launch the app with a book path to import + open
 - Drag-and-drop books or folders onto the window
+- In-reader links: external pages open in the system browser; downloadable books are imported into the library
 
 ## Prerequisites
 
@@ -83,6 +86,7 @@ src/                      SvelteKit UI (library + reader)
 src-tauri/src/
   commands.rs             Tauri IPC
   db.rs                   SQLite
+  download.rs             Import books from remote URLs
   formats/
     txt.rs                TXT → HTML
     markdown.rs           Markdown → HTML + TOC
